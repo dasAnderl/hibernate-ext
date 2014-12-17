@@ -1,0 +1,118 @@
+apply plugin: 'java'
+apply plugin: 'groovy'
+apply plugin: 'idea'
+apply plugin: 'maven'
+
+sourceCompatibility = 1.8
+version = '1.0-SNAPSHOT'
+group = 'com.anderl'
+
+sourceSets.main.java.srcDirs = []
+sourceSets.test.java.srcDirs = []
+sourceSets.main.groovy.srcDirs = ["src/main/java"]
+sourceSets.test.groovy.srcDirs = ["src/test/java"]
+
+repositories {
+    mavenCentral()
+}
+
+def versionSpringBoot = "1.1.6.RELEASE"
+def versionSpring = "4.1.0.RELEASE"
+
+dependencies {
+    compile "org.hibernate:hibernate-core:4.3.6.Final",
+            "org.hibernate.javax.persistence:hibernate-jpa-2.0-api:1.0.1.Final",
+            "org.slf4j:slf4j-api:1.7.7",
+            "javax.servlet:javax.servlet-api:3.1.0",
+            "org.springframework:spring-core:$versionSpring",
+            "org.springframework:spring-web:$versionSpring",
+            "org.springframework:spring-context:$versionSpring",
+            "org.springframework:spring-orm:$versionSpring",
+            "org.codehaus.groovy:groovy-all:2.3.6"
+
+    testCompile "com.h2database:h2:1.4.181",
+            "org.springframework.data:spring-data-jpa",
+            "org.springframework.boot:spring-boot-starter-data-jpa:$versionSpringBoot",
+            "org.springframework.boot:spring-boot:$versionSpringBoot",
+            "org.springframework.boot:spring-boot-autoconfigure:$versionSpringBoot",
+            "org.springframework.boot:spring-boot-starter-test:$versionSpringBoot",
+            "ch.qos.logback:logback-core:1.1.2",
+            "ch.qos.logback:logback-classic:1.1.2",
+            "org.assertj:assertj-core:1.7.0",
+            "junit:junit:4.11"
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.0'
+}
+
+jar {
+    manifest {
+        attributes("Buildtime": getDate())
+    }
+}
+
+def getDate() {
+    def date = new Date()
+    def formattedDate = date.format('yyyy-MM-dd HH:mm:ss')
+    return formattedDate
+}
+
+uploadArchives {
+    dependsOn test
+    repositories.mavenDeployer {
+        //needed otherwise generated pom is illegal
+        pom.project {
+            parent {
+                groupId 'org.springframework.boot'
+                artifactId 'spring-boot-starter-parent'
+                version "$versionSpringBoot"
+            }
+        }
+        if (version.contains("RELEASE")) {
+            repository(url: "file://$mavenRepoDir/releases")
+        } else {
+            repository(url: "file://$mavenRepoDir/snapshots")
+        }
+    }
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    archives sourcesJar
+}
+
+task gitAddMavenRepo(dependsOn: 'uploadArchives', type:Exec) {
+    workingDir mavenRepoDir
+    commandLine 'git', 'add', '--all'
+}
+
+task gitCommitMavenRepo(dependsOn: 'gitAddMavenRepo', type:Exec) {
+    workingDir mavenRepoDir
+    commandLine 'git', 'commit', '-m', "commited_version_$version"
+}
+
+task gitPushMavenRepo(dependsOn: 'gitCommitMavenRepo', type:Exec) {
+    workingDir mavenRepoDir
+    commandLine 'git', 'push', 'origin', 'master'
+}
+
+//
+//task gitAddMavenRepoWindows(dependsOn: 'uploadArchives', type:Exec) {
+//    workingDir mavenRepoDir
+//    commandLine 'cmd', '/c', 'C:\\Program Files (x86)\\Git\\bin\\git.exe', 'add', '--all'
+//}
+//
+//task gitCommitMavenRepoWindows(dependsOn: 'gitAddMavenRepoWindows', type:Exec) {
+//    workingDir mavenRepoDir
+//    commandLine 'cmd', '/c', 'C:\\Program Files (x86)\\Git\\bin\\git.exe', 'commit', '-m', "commited_version_$version"
+//}
+//
+//task gitPushMavenRepoWindows(dependsOn: 'gitCommitMavenRepoWindows', type:Exec) {
+//    workingDir mavenRepoDir
+//    commandLine 'cmd', '/c', 'C:\\Program Files (x86)\\Git\\bin\\git.exe', 'push', 'origin', 'master'
+//}
